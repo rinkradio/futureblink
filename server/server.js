@@ -12,24 +12,37 @@ const PORT = process.env.PORT || 5000;
 // ✅ Allowed origin from env
 const allowedOrigin = process.env.FRONTEND_URL;
 
-// ✅ CORS CONFIG (FINAL FIX)
-app.use(cors({
-  origin: allowedOrigin,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
-}));
-
-// ✅ Handle preflight requests
-app.options('*', cors());
-
-// ✅ Middleware
-app.use(express.json());
-
-// ✅ Debug logs
+// ✅ Debug logs (VERY IMPORTANT)
 console.log("🔑 OPENROUTER KEY LOADED:", !!process.env.OPENROUTER_API_KEY);
 console.log("📦 MONGO URI:", process.env.MONGODB_URI ? "Loaded" : "Missing");
 console.log("🌐 FRONTEND URL:", allowedOrigin);
+
+// ✅ CORS CONFIG (FINAL)
+const corsOptions = {
+  origin: function (origin, callback) {
+    // allow requests with no origin (Postman, curl)
+    if (!origin) return callback(null, true);
+
+    if (origin === allowedOrigin) {
+      return callback(null, true);
+    } else {
+      console.log("❌ Blocked by CORS:", origin);
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+};
+
+// ✅ Apply CORS
+app.use(cors(corsOptions));
+
+// ✅ Handle preflight requests properly
+app.options('*', cors(corsOptions));
+
+// ✅ Middleware
+app.use(express.json());
 
 // ✅ Routes
 app.use('/api', apiRoutes);
@@ -51,8 +64,8 @@ mongoose.connect(process.env.MONGODB_URI)
 
 // ✅ Global error handler
 app.use((err, req, res, next) => {
-  console.error('🔥 UNHANDLED ERROR:', err.stack);
-  res.status(500).json({ error: 'Something went wrong' });
+  console.error('🔥 UNHANDLED ERROR:', err.message);
+  res.status(500).json({ error: err.message || 'Something went wrong' });
 });
 
 // ✅ Start server
